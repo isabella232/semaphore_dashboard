@@ -1,8 +1,8 @@
 # semaphore_dashboard
 A dashboard for semaphore.ci. Written in LUA, intended to be executed on webscript.io
 
-## Screenhot
-[id]: screenshot.png  "Screenshot of dashboard with two branches"
+## Screenshot
+![Alt text](/screenshot.png?raw=true "Screenshot of dashboard with two branches")
 
 ## Usage
 Create a webscript.io script like this:
