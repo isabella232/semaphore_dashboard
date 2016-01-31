@@ -1,6 +1,7 @@
 local lustache = require('webscriptio/lib/lustache')
 local underscore = require('webscriptio/lib/underscore')
 local apiUrl = 'http://semaphoreci.com/api/v1/'
+local authToken = nil
 local template =
 [[
 <!doctype html>
@@ -140,7 +141,8 @@ function getAverageSuccessfulBuildDurationMin(projectData)
 	end
 end
 
-function renderStatusPage(authToken, projectHashId, branchHashIds)
+function renderStatusPage(_authToken, projectHashId, branchHashIds)
+    authToken = _authToken
 	local projectData = getProjectData(projectHashId)
 	local pendingBuildCount = getPendingBuildCount(projectData)
 	local context = {
