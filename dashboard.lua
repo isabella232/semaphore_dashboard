@@ -1,5 +1,5 @@
-local lustache = require('lustache')
-local underscore = require('underscore')
+local lustache = require('webscriptio/lib/lustache')
+local underscore = require('webscriptio/lib/underscore')
 local apiUrl = 'http://semaphoreci.com/api/v1/'
 local template =
 [[
