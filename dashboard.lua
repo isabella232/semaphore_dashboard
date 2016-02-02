@@ -38,6 +38,11 @@ local template =
   .branch_status { 
     text-transform: capitalize;
   }
+  .build_date {
+    font-size: 1vw;
+    margin-top: -25px;
+    margin-left: 8px;
+  }
 	</style>
 </head>
 <body>
@@ -45,7 +50,20 @@ local template =
   	<tr><td>Pending Builds</td><td class='{{{pendingBuildCountStatus}}}'>{{{pendingBuildCount}}}</td></tr>
     <tr><td>Avg Build Time</td><td>{{{averageBuildDurationMin}}}m</td></tr>
 	{{#branches}}
-		<tr class='branch_status'><td>{{{branch_name}}}</td><td class='{{{result}}}'>{{{result}}}</td></tr>
+		<tr class='branch_status'>
+      <td>
+				{{{branch_name}}}
+				<div class='build_date'>
+					Last Passing Build: {{{last_successful_build.last_updated_at}}}
+				</div>
+			</td>
+      <td class='{{{most_recent_build.result}}}'>
+				{{{most_recent_build.result}}}
+				<div class='build_date'>
+					Last update: {{{most_recent_build.last_updated_at}}}
+				</div>
+			</td>
+    </tr>
 	{{/branches}}
   </table>
 </div>
@@ -62,13 +80,24 @@ function toDate(x)
 	return os.time{year=year, month=month, day=day, hour=h, min=m, sec=s}
 end
 
+function dateToHoursAndMinutesAgo(date)
+	local ago = os.time() - date
+	local hours = math.floor(ago / 3600.0)
+	local minutes = math.ceil(ago / 60.0)
+	if minutes > 120 then
+		return tostring(hours) .. ' hours ago'
+	else
+		return tostring(minutes) .. ' minutes ago'
+	end
+end
+
 function roundUp(x)
 	return math.floor(x + 0.5)
 end
 
-function getBranchStatus(projectHashId, branchHashId)
+function getBranchHistory(projectHashId, branchHashId)
 	local response = http.request {
-		url = apiUrl .. 'projects/' .. projectHashId .. '/' .. branchHashId .. '/status',
+		url = apiUrl .. 'projects/' .. projectHashId .. '/' .. branchHashId,
 		params = {
 			auth_token=authToken
 		}
@@ -76,10 +105,52 @@ function getBranchStatus(projectHashId, branchHashId)
 	return json.parse(response.content)
 end
 
+function extractBuildData(build)
+	if build == nil then
+		return {
+			result = 'No Build',
+			last_updated_at = 'Never'
+		}
+	else
+		local last_updated_at
+		if build.finished_at == nil then
+			last_updated_at = build.started_at
+		else
+			last_updated_at = build.finished_at
+		end
+		return {
+			result = build.result,
+			last_updated_at = dateToHoursAndMinutesAgo(toDate(last_updated_at))
+		}
+	end
+end
+
+function getMostRecentBuildFromHistory(build_list)
+	if table.getn(build_list) > 0 then
+		local t = extractBuildData(build_list[1])
+		return t
+	else
+		return extractBuildData(nil)
+	end
+end
+
+function getLastSuccessfulBuildFromHistory(build_list)
+	local matcher = function(build)
+		return build.result == 'passed'
+	end
+	return extractBuildData(underscore.detect(build_list, matcher))  
+end
+
 function getDataForBranches(projectHashId, branchHashIds)
 	local branchData = {}
 	local callback = function(branchHashId)
-		table.insert(branchData, getBranchStatus(projectHashId, branchHashId))
+		local history = getBranchHistory(projectHashId, branchHashId)
+		local data = {
+			branch_name = history.branch_name,
+			most_recent_build = getMostRecentBuildFromHistory(history.builds),
+			last_successful_build = getLastSuccessfulBuildFromHistory(history.builds)
+		}
+		table.insert(branchData, data)
 	end
   underscore.each(branchHashIds, callback)
 	return branchData
