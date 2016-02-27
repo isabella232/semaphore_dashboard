@@ -95,12 +95,9 @@ function roundUp(x)
 	return math.floor(x + 0.5)
 end
 
-function getBranchHistory(projectHashId, branchHashId)
+function getBranchHistory(branchHistoryUrl)
 	local response = http.request {
-		url = apiUrl .. 'projects/' .. projectHashId .. '/' .. branchHashId,
-		params = {
-			auth_token=authToken
-		}
+		url = branchHistoryUrl
 	}
 	return json.parse(response.content)
 end
@@ -126,7 +123,7 @@ function extractBuildData(build)
 end
 
 function getMostRecentBuildFromHistory(build_list)
-	if table.getn(build_list) > 0 then
+	if build_list ~= nil and table.getn(build_list) > 0 then
 		local t = extractBuildData(build_list[1])
 		return t
 	else
@@ -141,18 +138,20 @@ function getLastSuccessfulBuildFromHistory(build_list)
 	return extractBuildData(underscore.detect(build_list, matcher))  
 end
 
-function getDataForBranches(projectHashId, branchHashIds)
+function getDataForBranches(branchHistoryUrls)
 	local branchData = {}
-	local callback = function(branchHashId)
-		local history = getBranchHistory(projectHashId, branchHashId)
-		local data = {
-			branch_name = history.branch_name,
-			most_recent_build = getMostRecentBuildFromHistory(history.builds),
-			last_successful_build = getLastSuccessfulBuildFromHistory(history.builds)
-		}
-		table.insert(branchData, data)
+	local callback = function(branchHistoryUrl)
+		local history = getBranchHistory(branchHistoryUrl)
+		if history ~= nil then
+			local data = {
+				branch_name = history.branch_name,
+				most_recent_build = getMostRecentBuildFromHistory(history.builds),
+				last_successful_build = getLastSuccessfulBuildFromHistory(history.builds)
+			}
+			table.insert(branchData, data)
+		end
 	end
-  underscore.each(branchHashIds, callback)
+	underscore.each(branchHistoryUrls, callback)
 	return branchData
 end
 	
@@ -172,6 +171,21 @@ function getProjectData(projectHashId)
 	else
 		return project
 	end
+end
+
+function getHistoryURLsForBranches(projectData, branchNames)
+	local selectCallback = function(branch)
+		if underscore.include(branchNames, branch.branch_name) then
+			return true
+		else
+			return false
+		end
+	end
+	branches = underscore.select(projectData.branches, selectCallback)
+	local mapCallback = function(branch)
+		return branch.branch_history_url
+	end
+	return underscore.map(branches, mapCallback)
 end
 
 function getPendingBuildCount(projectData)
@@ -212,15 +226,16 @@ function getAverageSuccessfulBuildDurationMin(projectData)
 	end
 end
 
-function renderStatusPage(_authToken, projectHashId, branchHashIds)
+function renderStatusPage(_authToken, projectHashId, branchNames)
     authToken = _authToken
 	local projectData = getProjectData(projectHashId)
 	local pendingBuildCount = getPendingBuildCount(projectData)
+	local branchHistoryUrls = getHistoryURLsForBranches(projectData, branchNames)
 	local context = {
 		pendingBuildCount = pendingBuildCount,
 		pendingBuildCountStatus = getPendingBuildCountStatus(pendingBuildCount),
 		averageBuildDurationMin = getAverageSuccessfulBuildDurationMin(projectData),
-		branches=getDataForBranches(projectHashId, branchHashIds)
+		branches=getDataForBranches(branchHistoryUrls)
 	}
 	
 	return lustache:render(template, context),
