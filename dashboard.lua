@@ -115,9 +115,14 @@ function extractBuildData(build)
 		else
 			last_updated_at = build.finished_at
 		end
+		if last_updated_at == nil then
+			last_updated_at = 'Never'
+		else
+			last_updated_at = dateToHoursAndMinutesAgo(toDate(last_updated_at))
+		end
 		return {
 			result = build.result,
-			last_updated_at = dateToHoursAndMinutesAgo(toDate(last_updated_at))
+			last_updated_at = last_updated_at
 		}
 	end
 end
