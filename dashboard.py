@@ -96,7 +96,7 @@ def toDate(date_string):
 def date_to_hours_and_minutes_ago(date):
 	ago = datetime.now(tzutc()) - date
 	minutes = int(math.ceil(ago.total_seconds() / 60.0))
-	hours = int(math.floor(minutes / 3600.0))
+	hours = int(math.floor(ago.total_seconds() / 3600.0))
 	if minutes > 120:
 		return "{hours} hours ago".format(hours=hours)
 	else:
